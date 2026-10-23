@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Cat screensaver override of omarchy-screensaver: the 3D ray-marched ASCII cat
+# (saver/cat3d.py). Falls back to the flat bash cat or to Omarchy's own
+# screensaver when the Python venv is missing. Settings:
+# ~/.config/omarchy/cat-screensaver.conf
+
+ROOT=$(dirname "$(dirname "$(readlink -f "$0")")")
+VENV=~/.local/share/cat-screensaver/venv
+
+SCENE=auto
+FALLBACK=simple
+CURSOR_WATCHDOG=0
+[[ -r ~/.config/omarchy/cat-screensaver.conf ]] && source ~/.config/omarchy/cat-screensaver.conf
+
+# The screensavers hide the mouse cursor and restore it on exit, but a SIGKILL
+# or a race between per-monitor instances can skip that. A detached watchdog
+# brings the cursor back once no screensaver window is left. The class name is
+# passed via env, not argv, so `pkill -f org.omarchy.screensaver` (used by
+# omarchy-system-lock and the screensavers) doesn't kill the watchdog too.
+if [[ $CURSOR_WATCHDOG == 1 ]]; then
+  SS_CLASS=org.omarchy.screensaver setsid bash -c 'sleep 3; while hyprctl clients -j | jq -e --arg c "$SS_CLASS" "any(.class == \$c)" >/dev/null 2>&1; do sleep 2; done
+    hyprctl eval "hl.config({ cursor = { invisible = false } })" &>/dev/null || hyprctl keyword cursor:invisible false &>/dev/null' </dev/null &>/dev/null &
+fi
+
+[[ -z $CAT_MODE && $SCENE != auto ]] && export CAT_MODE=$SCENE
+
+[[ -x $VENV/bin/python ]] && "$VENV/bin/python" "$ROOT/saver/cat3d.py" && exit 0
+
+case $FALLBACK in
+simple) exec "$ROOT/saver/simple-cat.sh" ;;
+*) exec /usr/bin/omarchy-screensaver ;;
+esac

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.juicemannew.cat-screensaver",
+  "name": "Cat Screensaver",
+  "version": "1.0.0",
+  "author": "juicemannew",
+  "license": "MIT",
+  "description": "3D ray-marched ASCII cat screensaver: a cookie in the morning, ramen at lunch, milk in the evening, asleep at night. Run install.sh after adding.",
+  "kinds": [
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "Picker.qml"
+  }
+}

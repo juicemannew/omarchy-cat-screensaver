@@ -1,0 +1,12 @@
+[Unit]
+Description=Cat screensaver: disable idle lock while on AC
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=@ROOT@/bin/cat-screensaver-ac-watch
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

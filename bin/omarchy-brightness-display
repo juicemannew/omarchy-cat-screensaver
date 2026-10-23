@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Cat screensaver override of omarchy-brightness-display (optional component).
+# Never fully blank the display while the charger is connected
+# (the lock screen calls `omarchy-brightness-display off` when idle).
+
+if [[ " $* " == *" off "* ]]; then
+  for s in /sys/class/power_supply/*; do
+    [[ $(cat "$s/type" 2>/dev/null) == Mains && $(cat "$s/online" 2>/dev/null) == 1 ]] && exit 0
+  done
+fi
+
+exec /usr/bin/omarchy-brightness-display "$@"

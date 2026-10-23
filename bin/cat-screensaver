@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# Cat screensaver command line: preview scenes, pick the default one, open the menu.
+
+ROOT=$(dirname "$(dirname "$(readlink -f "$0")")")
+CONF=~/.config/omarchy/cat-screensaver.conf
+SCENES=(cookie ramen milk sleep)
+
+usage() {
+  cat <<EOF
+Usage: cat-screensaver <command>
+
+  preview [scene]   Start the screensaver now (scene: ${SCENES[*]})
+  demo [seconds]    Show every scene in turn (default 15 s each; a key skips ahead)
+  scene [name]      Show or set the default scene (auto = by time of day)
+  menu              Toggle the scene picker in the Omarchy shell
+EOF
+}
+
+valid_scene() {
+  [[ " auto ${SCENES[*]} " == *" $1 "* ]]
+}
+
+running() {
+  pgrep -f '[o]rg.omarchy.screensaver' >/dev/null
+}
+
+set_conf() {
+  local key=$1 value=$2
+  touch "$CONF"
+  if grep -q "^$key=" "$CONF"; then
+    sed -i "s|^$key=.*|$key=$value|" "$CONF"
+  else
+    echo "$key=$value" >>"$CONF"
+  fi
+}
+
+case $1 in
+preview)
+  if [[ -n $2 ]]; then
+    valid_scene "$2" || { echo "Unknown scene: $2" >&2; exit 1; }
+    [[ $2 != auto ]] && export CAT_MODE=$2
+  fi
+  exec "$ROOT/bin/omarchy-launch-screensaver" force
+  ;;
+demo)
+  seconds=${2:-15}
+  for scene in "${SCENES[@]}"; do
+    notify-send -t 3000 "Cat screensaver" "$scene"
+    CAT_MODE=$scene "$ROOT/bin/omarchy-launch-screensaver" force >/dev/null
+    sleep 1
+    for ((i = 0; i < seconds * 2; i++)); do
+      running || break
+      sleep 0.5
+    done
+    pkill -f '[o]rg.omarchy.screensaver'
+    while running; do sleep 0.2; done
+  done
+  ;;
+scene)
+  if [[ -z $2 ]]; then
+    SCENE=auto
+    [[ -r $CONF ]] && source "$CONF"
+    echo "$SCENE"
+  else
+    valid_scene "$2" || { echo "Unknown scene: $2" >&2; exit 1; }
+    set_conf SCENE "$2"
+  fi
+  ;;
+menu)
+  omarchy-shell shell toggle "$(jq -r .id "$ROOT/manifest.json")" '{}'
+  ;;
+*)
+  usage
+  [[ -z $1 || $1 == -h || $1 == --help ]] || exit 1
+  ;;
+esac

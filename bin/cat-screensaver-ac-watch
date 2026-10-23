@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Cat screensaver AC watch (optional component, cat-screensaver-ac-watch.service).
+# Keeps the Omarchy idle lock off while the charger is connected, so the
+# screensaver keeps running instead of locking and blanking the display.
+# On battery idle.lock is restored to BATTERY_LOCK.
+
+CONFIG=~/.config/omarchy/shell.json
+BATTERY_LOCK=300
+[[ -r ~/.config/omarchy/cat-screensaver.conf ]] && source ~/.config/omarchy/cat-screensaver.conf
+
+ac_path=""
+for s in /sys/class/power_supply/*; do
+  [[ $(cat "$s/type" 2>/dev/null) == Mains ]] && ac_path=$s && break
+done
+[[ -n $ac_path ]] || { echo "No AC adapter found" >&2; exit 1; }
+
+apply() {
+  local want current tmp
+  if [[ $(cat "$ac_path/online" 2>/dev/null) == 1 ]]; then want=0; else want=$BATTERY_LOCK; fi
+  current=$(jq -r '.idle.lock // empty' "$CONFIG" 2>/dev/null)
+  [[ $current == "$want" ]] && return
+
+  tmp=$(mktemp) || return
+  if jq --argjson v "$want" '.idle.lock = $v' "$CONFIG" >"$tmp"; then
+    cat "$tmp" >"$CONFIG" # write in place so the shell's file watcher sees it
+    echo "idle.lock -> $want"
+  fi
+  rm -f "$tmp"
+}
+
+apply
+udevadm monitor --udev --subsystem-match=power_supply | while read -r line; do
+  [[ $line == *" change "* ]] && apply
+done
